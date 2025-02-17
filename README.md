@@ -31,7 +31,9 @@ This document outlines a detailed plan and roadmap for developing a chess positi
 #### Dataset Preparation
 - **Data Acquisition:**
   - Download chess game datasets from sources such as lichess and chess.com.
-  - **Lichess.org Open Database:**  
+  - **Lichess.org Open Database:**
+    https://database.lichess.org/#variant_games
+    
     We plan to use the lichess.org open database. Database exports are released under the Creative Commons CC0 license, which allows usage for research, commercial purposes, publication, or any other purpose without permission.
     - **Standard Chess, Variants, Puzzles, Evaluations:**
       - Over 6.3 billion standard rated games played on lichess.org in PGN format. Each file contains the games for one month only (e.g., January 2025: 32.9 GB with 100,412,379 games; December 2024: 31.6 GB with 96,587,411 games).
