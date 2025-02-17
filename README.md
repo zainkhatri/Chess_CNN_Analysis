@@ -1,6 +1,6 @@
 # Artificial Intelligence Optimized Chess Tactics Trainer
 
-A revolutionary chess analytics engine leveraging machine learning, data-driven insights, and real-time evaluation to transform chess training.
+A revolutionary chess analytics engine leveraging machine learning, data driven insights, and real time evaluation to transform chess training.
 
 ## Core Features
 
@@ -32,22 +32,12 @@ A revolutionary chess analytics engine leveraging machine learning, data-driven 
 ### Week 8 (02/25 - 02/29): Model Development
 * Build initial CNN model (PyTorch/TensorFlow)
 * Train model on labeled chess positions
-* Evaluate accuracy using Stockfish-suggested moves as ground truth
+* Evaluate accuracy using Stockfish suggested moves as ground truth
 
 ### Week 9 (03/04 - 03/06): Model Optimization
 * Hyperparameter tuning & model improvements (optimizer, layers, dropout)
 * Test against Stockfish & compare move accuracy
 * Implement a basic blunder detection system
-
-### Week 10 (03/11 - 03/13): Interface & Testing
-* (Optional UI) Set up a simple web interface (React.js + Flask)
-* (Final Testing) Run AI vs. Stockfish games to assess performance
-* Refine model performance & document key insights
-
-### Extra Week (03/07 - 03/14): Finalization
-* Polish the final report (NeurIPS/ICML format)
-* Prepare submission for Gradescope (Report + Code)
-* Buffer time for debugging, last-minute improvements
 
 ## Impact
 
