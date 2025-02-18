@@ -8,13 +8,13 @@ This document outlines a detailed plan and roadmap for developing a chess positi
 
 ### 1.1 Objective
 - Develop an end to end system that processes chess game datasets, evaluates positions, and predicts moves using a custom CNN architecture.
-- Integrate Stockfish evaluations to create high quality training labels and validate model predictions.
-- Build an interactive frontend that allows users to visualize chessboard evaluations, move suggestions, and performance analytics.
+- Integrate Stockfish evaluations to create high quality training labels and validate model predictions. Generate personalized puzzles and coaching for improvement.
+- Build an interactive frontend that allows users to visualize chessboard evaluations, track user accuracy, mistakes/improvements over time, heatmap choice patterns, move suggestions, and performance analytics.
 
 ### 1.2 Motivation
-- Leverage deep learning to capture complex board patterns and improve move prediction accuracy.
+- Leverage deep learning to capture complex board patterns and improve move prediction accuracy at adjustable depth Stockfish 1-8 paired with AI-enhanced analysis.
 - Combine traditional chess engine analysis with data driven techniques to enhance evaluation performance.
-- Provide a tool for both research and practical chess analysis that benefits players and enthusiasts alike.
+- Provide a unique tool, stat-tracker and AI-assisted trainer for both research and practical chess analysis that benefits players and enthusiasts alike.
 
 ### 1.3 Key Contributions
 - A custom CNN architecture with integrated residual and attention mechanisms.
@@ -50,7 +50,7 @@ This document outlines a detailed plan and roadmap for developing a chess positi
 - **Data Cleaning:**
   - Organize FEN position data and remove inconsistencies.
 - **Feature Extraction:**
-  - Convert FEN strings to matrix representations and extract additional features (e.g., attack maps, piece mobility).
+  - Convert FEN strings to matrix representations and extract additional features (e.g., attack maps, piece mobility/focusing, board flipping).
 - **Labeling:**
   - Generate labeled datasets using evaluations from the Stockfish engine.
 - **Data Splitting:**
