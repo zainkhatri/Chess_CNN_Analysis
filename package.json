@@ -1,29 +1,31 @@
 {
-  "name": "chess",
-  "version": "0.1.0",
-  "private": true,
-  "dependencies": {
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@testing-library/user-event": "^13.5.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
-  },
+  "name": "chess-app",
+  "version": "1.0.0",
+  "description": "A chess web app using chess.js and react-chessboard.",
+  "main": "app.js",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+  "dependencies": {
+    "axios": "^1.8.1",
+    "chart.js": "^4.4.8",
+    "chess.js": "^1.1.0",
+    "react": "^18.2.0",
+    "react-chessboard": "^4.7.2",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.2.0",
+    "react-scripts": "^5.0.1",
+    "stockfish": "^16.0.0",
+    "web-vitals": "^4.2.4"
   },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "license": "MIT",
   "browserslist": {
     "production": [
       ">0.2%",
