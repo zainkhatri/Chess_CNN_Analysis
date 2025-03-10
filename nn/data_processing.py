@@ -10,17 +10,18 @@ from tqdm import tqdm
 import glob
 from model import ChessDataset, encode_board, move_to_index
 
-def process_pgn_file(pgn_file, max_games=1000, min_elo=1500):
+def process_pgn_file(pgn_file, stockfish_path, max_games=1000, min_elo=1800):
     """Process a PGN file and extract positions with evaluations"""
     positions = []
     evals = []
     best_moves = []
     
-    # Setup Stockfish for evaluation
+    # Setup Stockfish for evaluation with proper path
     try:
-        engine = chess.engine.SimpleEngine.popen_uci("stockfish")
+        engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
         engine.configure({"Threads": 2})  # Use fewer threads to save resources
-        print(f"Using Stockfish for evaluation on {pgn_file}")
+        print(f"Successfully loaded Stockfish from {stockfish_path}")
+        print(f"Processing {pgn_file}")
     except Exception as e:
         print(f"Stockfish error: {e}, skipping evaluations")
         engine = None
@@ -35,7 +36,7 @@ def process_pgn_file(pgn_file, max_games=1000, min_elo=1500):
                 if game is None:
                     break
                 
-                # Skip games with low rated players
+                # Skip games with low rated players - increase minimum ELO
                 white_elo = int(game.headers.get("WhiteElo", 0))
                 black_elo = int(game.headers.get("BlackElo", 0))
                 
@@ -44,8 +45,8 @@ def process_pgn_file(pgn_file, max_games=1000, min_elo=1500):
                     
                     moves_played = 0
                     for move in game.mainline_moves():
-                        # Only analyze after opening (move 10+) to reduce noise and every 4th move to reduce compute
-                        if moves_played >= 10 and moves_played % 4 == 0:
+                        # Only analyze after opening (move 10+) to reduce noise and every 3rd move to reduce compute
+                        if moves_played >= 10 and moves_played % 3 == 0:
                             # Current FEN
                             fen = board.fen()
                             
@@ -53,19 +54,42 @@ def process_pgn_file(pgn_file, max_games=1000, min_elo=1500):
                             eval_score = 0
                             if engine:
                                 try:
-                                    info = engine.analyse(board, chess.engine.Limit(depth=10), multipv=1)
+                                    # Deeper analysis for better evaluations
+                                    info = engine.analyse(board, chess.engine.Limit(depth=15), multipv=1)
                                     eval_score = info["score"].white().score(mate_score=10000) / 100.0  # convert to pawns
+                                    
+                                    # Get top 3 moves and choose the best one
+                                    top_moves = engine.analyse(board, chess.engine.Limit(depth=15), multipv=3)
+                                    best_move = top_moves[0]["pv"][0]
+                                    
+                                    # Store this position with high-quality evaluation
+                                    encoded_board = encode_board(fen)
+                                    positions.append(encoded_board)
+                                    evals.append(eval_score)
+                                    
+                                    # Convert best move from engine to index
+                                    move_idx = move_to_index(best_move.uci())
+                                    best_moves.append(move_idx)
+                                    
                                 except Exception as e:
                                     print(f"Evaluation error: {e}")
-                            
-                            # Store this position
-                            encoded_board = encode_board(fen)
-                            positions.append(encoded_board)
-                            evals.append(eval_score)
-                            
-                            # Get the move that was actually played and convert to index
-                            move_idx = move_to_index(move.uci())
-                            best_moves.append(move_idx)
+                                    # Still analyze the position with the actual move
+                                    encoded_board = encode_board(fen)
+                                    positions.append(encoded_board)
+                                    evals.append(0)  # Neutral evaluation
+                                    
+                                    # Get the move that was actually played
+                                    move_idx = move_to_index(move.uci())
+                                    best_moves.append(move_idx)
+                            else:
+                                # Fallback if no engine
+                                encoded_board = encode_board(fen)
+                                positions.append(encoded_board)
+                                evals.append(0)  # Neutral evaluation
+                                
+                                # Get the move that was actually played
+                                move_idx = move_to_index(move.uci())
+                                best_moves.append(move_idx)
                         
                         # Make the move on the board
                         board.push(move)
@@ -85,9 +109,9 @@ def process_pgn_file(pgn_file, max_games=1000, min_elo=1500):
     
     return positions, evals, best_moves
 
-def process_pgn_files(pgn_files, max_games_per_file=1000, min_elo=1500):
+def process_pgn_files(pgn_files, stockfish_path, max_games_per_file=100, min_elo=1800):
     """Process multiple PGN files sequentially"""
-    print(f"Processing {len(pgn_files)} PGN files sequentially")
+    print(f"Processing {len(pgn_files)} PGN files with Stockfish for high-quality evaluations")
     
     # Process each file
     all_positions = []
@@ -95,7 +119,7 @@ def process_pgn_files(pgn_files, max_games_per_file=1000, min_elo=1500):
     all_moves = []
     
     for pgn_file in tqdm(pgn_files, desc="Processing PGN files"):
-        positions, evals, moves = process_pgn_file(pgn_file, max_games_per_file, min_elo)
+        positions, evals, moves = process_pgn_file(pgn_file, stockfish_path, max_games_per_file, min_elo)
         all_positions.extend(positions)
         all_evals.extend(evals)
         all_moves.extend(moves)
@@ -154,11 +178,20 @@ def main():
     
     print(f"Found {len(pgn_files)} PGN files")
     
-    # Process PGN files (limit to first 2 for faster processing)
+    # Set path to Stockfish
+    stockfish_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'public', 'Stockfish')
+    
+    if not os.path.exists(stockfish_path):
+        print(f"Stockfish not found at {stockfish_path}")
+        print("Looking for stockfish.js instead...")
+        stockfish_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'public', 'stockfish.js')
+    
+    # Process PGN files
     positions, evals, moves = process_pgn_files(
-        pgn_files[:2],  # Process first 2 files
-        max_games_per_file=100,  # Process 100 games per file
-        min_elo=1600  # Only games with players rated at least 1600
+        pgn_files[:5],  # Process all 5 files
+        stockfish_path,
+        max_games_per_file=150,  # Process more games per file
+        min_elo=1800  # Only games with players rated at least 1800
     )
     
     print(f"Total positions collected: {len(positions)}")
@@ -168,7 +201,7 @@ def main():
         return
     
     # Save processed data
-    output_file = os.path.join(processed_data_dir, 'processed_data.pt')
+    output_file = os.path.join(processed_data_dir, 'processed_data_high_quality.pt')
     
     torch.save({
         'positions': torch.stack(positions),
@@ -189,7 +222,7 @@ def main():
             'positions': torch.stack(sample_positions),
             'evals': torch.tensor(sample_evals),
             'moves': torch.tensor(sample_moves)
-        }, os.path.join(processed_data_dir, 'sample_data.pt'))
+        }, os.path.join(processed_data_dir, 'sample_high_quality.pt'))
         
         print(f"Saved sample data with 1000 positions")
 

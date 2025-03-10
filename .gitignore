@@ -23,3 +23,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+processed_data/
+ches_cnn_epochs/
+node_modules/
+__pycachce__/
