@@ -14,7 +14,7 @@ class ChessAdvisor:
     
     def __init__(self, model_path=None, stockfish_path=None):
         """Initialize the chess advisor"""
-        # Check if we have a GPU
+        # Check device
         if torch.backends.mps.is_available():
             self.device = torch.device("mps")
             print("Using MPS (Apple Silicon GPU)")
@@ -25,7 +25,7 @@ class ChessAdvisor:
             self.device = torch.device("cpu")
             print("Using CPU")
         
-        # Load model if available
+        # Load model
         self.model = None
         if model_path and os.path.exists(model_path):
             try:
@@ -44,7 +44,7 @@ class ChessAdvisor:
                 print(f"Error loading model: {e}")
                 self.model = None
         
-        # Initialize Stockfish if available
+        # Init Stockfish
         self.stockfish = None
         if stockfish_path:
             try:
@@ -63,33 +63,33 @@ class ChessAdvisor:
     
     def analyze_position(self, fen, depth=10):
         """Analyze a single position"""
-        # Create a chess board from FEN
+        # Setup board
         board = chess.Board(fen)
         
-        # Model evaluation
+        # Model analysis
         model_eval = None
         model_moves = []
         attention_map = None
         
         if self.model:
             try:
-                # Encode board for the model
+                # Encode position
                 encoded_board = encode_board(fen).unsqueeze(0).to(self.device)
                 
-                # Model prediction
+                # Get prediction
                 with torch.no_grad():
                     policy_output, value_output = self.model(encoded_board)
                     
-                    # Get attention heatmap
+                    # Get attention
                     attention_map = self.model.get_attention_map()
                     
-                    # Get model evaluation
-                    model_eval = value_output.item() * 100  # Scale to centipawns
+                    # Get evaluation
+                    model_eval = value_output.item() * 100  # To centipawns
                     
-                    # Get top moves from policy output
+                    # Get move probabilities
                     policy_probs = torch.softmax(policy_output, dim=1)[0]
                     
-                    # Find valid moves
+                    # Filter legal moves
                     legal_moves = list(board.legal_moves)
                     legal_move_scores = []
                     
@@ -107,15 +107,15 @@ class ChessAdvisor:
                         except:
                             continue
                     
-                    # Sort by probability
+                    # Sort moves
                     legal_move_scores.sort(key=lambda x: x["probability"], reverse=True)
                     
-                    # Get top moves
+                    # Top moves
                     model_moves = legal_move_scores[:3] if legal_move_scores else []
             except Exception as e:
                 print(f"Error in model evaluation: {e}")
         
-        # Stockfish evaluation
+        # Stockfish analysis
         stockfish_eval = None
         stockfish_moves = []
         
@@ -153,14 +153,14 @@ class ChessAdvisor:
         board = chess.Board(starting_fen)
         analysis = []
         
-        # Add starting position
+        # Starting position
         analysis.append({
             'move_number': 0,
             'move': None,
             'position': self.analyze_position(board.fen())
         })
         
-        # Process each move
+        # Analyze moves
         for i, move_str in enumerate(moves):
             try:
                 move = board.parse_uci(move_str)
@@ -185,7 +185,7 @@ class ChessAdvisor:
         if not game:
             return None
         
-        # Get game info
+        # Get metadata
         headers = {
             'white': game.headers.get("White", "Unknown"),
             'black': game.headers.get("Black", "Unknown"),
@@ -195,14 +195,14 @@ class ChessAdvisor:
             'black_elo': game.headers.get("BlackElo", "?")
         }
         
-        # Convert moves to UCI format
+        # Get moves
         moves = []
         board = game.board()
         for move in game.mainline_moves():
             moves.append(move.uci())
             board.push(move)
         
-        # Analyze the game
+        # Full analysis
         analysis = self.analyze_game(moves)
         
         return {
@@ -227,30 +227,29 @@ class ChessAdvisor:
             prev_pos = game_analysis[i-1]['position']
             curr_pos = game_analysis[i]['position']
             
-            # Skip if no stockfish evaluation
+            # Need evaluations
             if prev_pos['stockfish_eval'] is None or curr_pos['stockfish_eval'] is None:
                 continue
             
-            # Calculate the evaluation difference
+            # Get evals
             prev_eval = prev_pos['stockfish_eval']
             curr_eval = curr_pos['stockfish_eval']
             
-            # Adjust for side to move (negate every other position)
+            # Adjust for side
             move_num = game_analysis[i]['move_number']
             side_to_move = 'white' if move_num % 2 == 1 else 'black'
             
-            # For white's move, a decrease in evaluation is bad
-            # For black's move, an increase in evaluation is bad
+            # Calculate loss
             eval_diff = prev_eval - curr_eval if side_to_move == 'white' else curr_eval - prev_eval
             
-            # If the difference exceeds threshold, it's a mistake
+            # Check threshold
             if eval_diff >= threshold:
-                # Get the best move that should have been played
+                # Get best move
                 best_move = None
                 if prev_pos['stockfish_moves']:
                     best_move = prev_pos['stockfish_moves'][0]
                 
-                # Add to mistakes list
+                # Add mistake
                 mistakes.append({
                     'move_number': move_num,
                     'side': side_to_move,
@@ -274,16 +273,16 @@ class ChessAdvisor:
             move_numbers.append(move_data['move_number'])
             
             if move_data['position']['model_eval'] is not None:
-                model_evals.append(move_data['position']['model_eval'] / 100)  # Convert to pawns
+                model_evals.append(move_data['position']['model_eval'] / 100)  # To pawns
             else:
                 model_evals.append(None)
                 
             if move_data['position']['stockfish_eval'] is not None:
-                stockfish_evals.append(move_data['position']['stockfish_eval'] / 100)  # Convert to pawns
+                stockfish_evals.append(move_data['position']['stockfish_eval'] / 100)  # To pawns
             else:
                 stockfish_evals.append(None)
         
-        # Filter out None values
+        # Filter nulls
         valid_indices = [i for i, x in enumerate(stockfish_evals) if x is not None]
         valid_move_numbers = [move_numbers[i] for i in valid_indices]
         valid_stockfish_evals = [stockfish_evals[i] for i in valid_indices]
@@ -294,30 +293,30 @@ class ChessAdvisor:
         
         plt.figure(figsize=(12, 6))
         
-        # Plot stockfish evaluation
+        # Plot Stockfish
         if valid_stockfish_evals:
             plt.plot(valid_move_numbers, valid_stockfish_evals, 'r-', label='Stockfish')
         
-        # Plot model evaluation
+        # Plot CNN
         if valid_model_evals:
             plt.plot(valid_model_move_numbers, valid_model_evals, 'b-', label='Neural Network')
         
-        # Add horizontal line at 0
+        # Zero line
         plt.axhline(y=0, color='k', linestyle='-', alpha=0.3)
         
-        # Add labels for even/odd moves (white/black)
+        # Mark sides
         for i in range(len(move_numbers)):
             if i % 2 == 0:  # White's move
                 plt.axvspan(i-0.5, i+0.5, alpha=0.1, color='lightgray')
         
-        # Aesthetic settings
+        # Make pretty
         plt.title('Position Evaluation Throughout Game')
         plt.xlabel('Move Number')
         plt.ylabel('Evaluation (pawns)')
         plt.legend()
         plt.grid(True, alpha=0.3)
         
-        # Add a note about evaluation meaning
+        # Add note
         plt.figtext(0.5, 0.01, 'Positive values favor White, negative values favor Black', 
                     ha='center', fontsize=10, style='italic')
         
@@ -330,7 +329,7 @@ class ChessAdvisor:
     
     def get_positional_advice(self, game_analysis, move_number):
         """Get specific advice for a position"""
-        # Find the position
+        # Find position
         position_data = None
         for move_data in game_analysis:
             if move_data['move_number'] == move_number:
@@ -343,17 +342,17 @@ class ChessAdvisor:
         position = position_data['position']
         side_to_move = 'white' if move_number % 2 == 1 else 'black'
         
-        # Get best moves
+        # Get candidate moves
         stockfish_moves = position['stockfish_moves']
         model_moves = position['model_moves']
         
-        # Compare model and stockfish top moves
+        # Check agreement
         model_agrees = False
         if model_moves and stockfish_moves:
             if model_moves[0]['uci'] == stockfish_moves[0]['uci']:
                 model_agrees = True
         
-        # Format the advice
+        # Create advice
         advice = {
             'move_number': move_number,
             'side_to_move': side_to_move,
@@ -373,11 +372,11 @@ class ChessAdvisor:
         # Find mistakes
         mistakes = self.find_mistakes(game_analysis, threshold=mistake_threshold)
         
-        # Count moves by each side
+        # Count moves
         white_moves = sum(1 for move in game_analysis if move['move_number'] % 2 == 1 and move['move_number'] > 0)
         black_moves = sum(1 for move in game_analysis if move['move_number'] % 2 == 0 and move['move_number'] > 0)
         
-        # Count mistakes by each side
+        # Count errors
         white_mistakes = sum(1 for mistake in mistakes if mistake['side'] == 'white')
         black_mistakes = sum(1 for mistake in mistakes if mistake['side'] == 'black')
         
@@ -385,7 +384,7 @@ class ChessAdvisor:
         white_accuracy = 100 * (1 - white_mistakes / white_moves) if white_moves > 0 else 100
         black_accuracy = 100 * (1 - black_mistakes / black_moves) if black_moves > 0 else 100
         
-        # Categorize mistakes by severity
+        # Count types
         white_blunders = sum(1 for mistake in mistakes if mistake['side'] == 'white' and mistake['mistake_severity'] == 'blunder')
         white_mistakes_med = sum(1 for mistake in mistakes if mistake['side'] == 'white' and mistake['mistake_severity'] == 'mistake')
         white_inaccuracies = sum(1 for mistake in mistakes if mistake['side'] == 'white' and mistake['mistake_severity'] == 'inaccuracy')
@@ -394,9 +393,9 @@ class ChessAdvisor:
         black_mistakes_med = sum(1 for mistake in mistakes if mistake['side'] == 'black' and mistake['mistake_severity'] == 'mistake')
         black_inaccuracies = sum(1 for mistake in mistakes if mistake['side'] == 'black' and mistake['mistake_severity'] == 'inaccuracy')
         
-        # Generate report
+        # Create report
         report = {
-            'total_moves': len(game_analysis) - 1,  # Excluding initial position
+            'total_moves': len(game_analysis) - 1,  # Skip initial
             'white_moves': white_moves,
             'black_moves': black_moves,
             'white_stats': {
@@ -426,15 +425,15 @@ if __name__ == "__main__":
         print("Usage: python game_advisor.py <pgn_file>")
         sys.exit(1)
     
-    # Initialize the advisor
+    # Init advisor
     model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'chess_cnn_best.pt')
     advisor = ChessAdvisor(model_path=model_path, stockfish_path="stockfish")
     
-    # Read PGN file
+    # Load game
     with open(sys.argv[1], 'r') as f:
         pgn_content = f.read()
     
-    # Analyze game
+    # Analyze
     game_results = advisor.analyze_pgn(pgn_content)
     
     if not game_results:
@@ -444,7 +443,7 @@ if __name__ == "__main__":
     # Generate report
     report = advisor.generate_game_report(game_results['analysis'])
     
-    # Print summary
+    # Show summary
     print("\nGame Summary:")
     print("-------------")
     print(f"White: {game_results['headers']['white']} ({game_results['headers']['white_elo']})")
@@ -462,7 +461,7 @@ if __name__ == "__main__":
     print(f"  Mistakes: {report['black_stats']['medium_mistakes']}")
     print(f"  Inaccuracies: {report['black_stats']['inaccuracies']}")
     
-    # Print major mistakes
+    # Show key moments
     if report['mistakes']:
         print("\nKey Moments:")
         for mistake in sorted(report['mistakes'], key=lambda x: x['eval_loss'], reverse=True)[:5]:
@@ -471,7 +470,7 @@ if __name__ == "__main__":
             if mistake['best_move']:
                 print(f"    Better: {mistake['best_move']['san']} (saves {mistake['eval_loss']/100:.1f} pawns)")
     
-    # Generate evaluation graph
+    # Save evaluation chart
     plt = advisor.visualize_evaluation(game_results['analysis'])
     plt.savefig('game_evaluation.png')
     print("\nEvaluation chart saved to game_evaluation.png")

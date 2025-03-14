@@ -27,4 +27,6 @@ yarn-error.log*
 processed_data/
 ches_cnn_epochs/
 node_modules/
-__pycachce__/
+__pycache__/
+*.pyc
+models/

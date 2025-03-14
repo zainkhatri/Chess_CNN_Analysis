@@ -9,7 +9,7 @@ from game_advisor import ChessAdvisor
 
 def save_analysis_for_frontend(moves, analysis, output_file):
     """Save game analysis in a format suitable for the React frontend"""
-    # Convert analysis to a more frontend-friendly format
+    # Format for frontend
     frontend_data = {
         "positions": [],
         "summary": {
@@ -29,22 +29,22 @@ def save_analysis_for_frontend(moves, analysis, output_file):
         }
     }
     
-    # Process each position
+    # Process positions
     for i, pos_data in enumerate(analysis):
         position = pos_data['position']
         
-        # Skip the initial position for move calculation
+        # Skip initial
         if i > 0:
             move_number = pos_data['move_number']
             
-            # Create a board to get the SAN notation
+            # Get SAN notation
             board = chess.Board(analysis[i-1]['position']['fen'])
             move = chess.Move.from_uci(pos_data['move'])
             san_move = board.san(move)
             
             side = 'white' if move_number % 2 == 1 else 'black'
             
-            # Determine the quality of the move
+            # Check quality
             quality = 'best'
             eval_loss = 0
             
@@ -52,14 +52,13 @@ def save_analysis_for_frontend(moves, analysis, output_file):
                 prev_eval = analysis[i-1]['position']['stockfish_eval']
                 curr_eval = position['stockfish_eval']
                 
-                # For white, a decrease in evaluation is bad
-                # For black, an increase in evaluation is bad
+                # Calculate loss
                 if side == 'white':
                     eval_loss = (prev_eval - curr_eval) / 100  # Convert to pawns
                 else:
                     eval_loss = (curr_eval - prev_eval) / 100  # Convert to pawns
                 
-                # Categorize move quality
+                # Label moves
                 if eval_loss >= 2.0:
                     quality = 'blunder'
                     if side == 'white':
@@ -75,7 +74,7 @@ def save_analysis_for_frontend(moves, analysis, output_file):
                 elif eval_loss >= 0.5:
                     quality = 'inaccuracy'
                 
-                # Add to decisive moments if it's a significant error
+                # Track key moments
                 if eval_loss >= 1.0:
                     frontend_data['summary']['decisive_moments'].append({
                         'move_number': move_number,
@@ -83,7 +82,7 @@ def save_analysis_for_frontend(moves, analysis, output_file):
                         'centipawn_loss': eval_loss * 100
                     })
         
-        # Prepare position for frontend
+        # Add position data
         frontend_position = {
             'fen': position['fen'],
             'move_number': pos_data['move_number'],
@@ -95,18 +94,18 @@ def save_analysis_for_frontend(moves, analysis, output_file):
                 },
                 'top_moves': position['stockfish_moves'],
                 'material_balance': {
-                    'white_material': 0,  # Would need to calculate from FEN
-                    'black_material': 0,  # Would need to calculate from FEN
+                    'white_material': 0,  # Need calculation
+                    'black_material': 0,  # Need calculation
                     'balance': 0
                 },
                 'mobility': {
-                    'white_total': 0,  # Would need to calculate
-                    'black_total': 0   # Would need to calculate
+                    'white_total': 0,  # Need calculation
+                    'black_total': 0   # Need calculation
                 }
             }
         }
         
-        # Add evaluation if this isn't the first position
+        # Add move quality
         if i > 0:
             frontend_position['evaluation'] = {
                 'quality': quality,
@@ -115,7 +114,7 @@ def save_analysis_for_frontend(moves, analysis, output_file):
         
         frontend_data['positions'].append(frontend_position)
     
-    # Calculate overall accuracy
+    # Calculate accuracy
     white_moves = sum(1 for pos in frontend_data['positions'] if 'evaluation' in pos and pos['move_number'] % 2 == 1)
     black_moves = sum(1 for pos in frontend_data['positions'] if 'evaluation' in pos and pos['move_number'] % 2 == 0)
     
@@ -131,10 +130,10 @@ def save_analysis_for_frontend(moves, analysis, output_file):
     if black_moves > 0:
         frontend_data['summary']['black_accuracy'] = 100 * black_good_moves / black_moves
     
-    # Sort decisive moments by centipawn loss
+    # Sort key moments
     frontend_data['summary']['decisive_moments'].sort(key=lambda x: x['centipawn_loss'], reverse=True)
     
-    # Save to file
+    # Save result
     with open(output_file, 'w') as f:
         json.dump(frontend_data, f, indent=2)
     
@@ -154,26 +153,26 @@ def main():
         parser.print_help()
         sys.exit(1)
     
-    # Initialize the advisor
+    # Setup advisor
     advisor = ChessAdvisor(model_path=args.model, stockfish_path="stockfish")
     
     # Process input
     game_results = None
     
     if args.pgn:
-        # Read PGN file
+        # Read PGN
         with open(args.pgn, 'r') as f:
             pgn_content = f.read()
         
-        # Analyze game from PGN
+        # Analyze game
         game_results = advisor.analyze_pgn(pgn_content)
     
     elif args.moves:
-        # Read moves from JSON
+        # Read moves
         with open(args.moves, 'r') as f:
             moves_data = json.load(f)
         
-        # Extract moves array
+        # Extract moves
         if isinstance(moves_data, list):
             moves = moves_data
         elif isinstance(moves_data, dict) and 'moves' in moves_data:
@@ -182,10 +181,10 @@ def main():
             print("Error: Could not find moves array in JSON file")
             sys.exit(1)
         
-        # Analyze game from moves
+        # Analyze game
         game_analysis = advisor.analyze_game(moves)
         
-        # Create simple game results structure
+        # Create results
         game_results = {
             'headers': {
                 'white': "Player",
@@ -201,16 +200,16 @@ def main():
         print("Error: Failed to analyze game")
         sys.exit(1)
     
-    # Save results in frontend-friendly format
+    # Format for frontend
     frontend_data = save_analysis_for_frontend(game_results['moves'], game_results['analysis'], args.output)
     
-    # Generate evaluation graph
+    # Create chart
     advisor.visualize_evaluation(game_results['analysis'], output_file='evaluation_chart.png')
     
     print(f"Analysis complete! Results saved to {args.output}")
     print(f"Evaluation chart saved to evaluation_chart.png")
     
-    # Print a brief summary
+    # Show summary
     print("\nGame Summary:")
     print(f"White Accuracy: {frontend_data['summary']['white_accuracy']:.1f}%")
     print(f"Black Accuracy: {frontend_data['summary']['black_accuracy']:.1f}%")
